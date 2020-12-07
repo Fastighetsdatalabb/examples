@@ -1,0 +1,1 @@
+This is Fastighetsdatalabbets repository for our hackathons. We publish all our hackathon code here including some of the instructions.
