@@ -39,83 +39,54 @@ import datetime
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
-import proptech
+class ProptechConnection:
 
-class ProptechCmd(cmd.Cmd):
-    intro = 'Welcome to the proptech cmd shell.   Type help or ? to list commands.\n'
-    prompt = '>>'
+    def __init__(self, cid, secret, owner = None):
+        url = 'https://login.microsoftonline.com/d4218456-670f-42ad-9f6a-885ae15b6645/oauth2/v2.0/token'
 
-    def do_connect(self, line):
-        'Connect to Proptech OS: connect <client id> <secret>'
-        args = line.split()
-        if (len(args) < 2):
-            print("Error - you need to provide two arguments.")
-            return
-        cid = args[0]
-        secret = args[1]
-        if (len(args) > 2):
-            owner=args[2]
-            self.connection = proptech.ProptechConnection(cid, secret, owner)
-        else:
-            self.connection = proptech.ProptechConnection(cid, secret)
+        mydata = {
+            'grant_type':'client_credentials',
+            'client_id': cid,
+            'client_secret': secret,
+            'scope':'https://proptechos.com/api/.default'
+        }
 
-        print("Sending fetch requests with token: ", self.connection.hdrs)
+        response = requests.post(url, data = mydata)
+        token = response.json()
+        self.hdrs = {'accept':'application/json', 'Authorization': 'Bearer ' + token['access_token']}
+        if owner:
+            self.hdrs['X-Property-Owner'] = owner
+        print("Sending fetch requests with token: ", self.hdrs)
     
-    def do_fetch(self, line):
+    def fetch(self, type, size = 10, extra = ''):
         'Get the list of resource from Proptech OS. fetch <type-of-resource> [number]'
         # Get the resource list - first 50 devices
-        args = line.split()
-        if (len(args) < 1):
-            print("Error - you need to provide at least the resource type.")
-            return
-        type = args[0]
-        size = 10
-        extra = ''
-        sizeStr = ''
-        if (len(args) > 1):
-            size = int(args[1])
-            if size > 0:
-                sizeStr = "?page=0&size=" + str(size)
-            else:
-                sizeStr = "?"
-        if (len(args) > 2):
-            if len(sizeStr) > 1:
-                extra= "&" + args[2]
-            else:
-                extra = args[2]
-        jsonData = self.connection.fetch(type, size, extra)
-        print(json.dumps(jsonData, indent=4))
-        self.result = jsonData
+        sizeStr = "?page=0&size=" + str(size)
 
-    def do_eval(self, line):
-        result = self.result
-        devices = self.devices
-        evalRes = eval(line)
-        print(evalRes)
+        if len(extra) > 0:
+            extra = '&' + extra
 
-    def do_EOF(self, line):
-        return True
+        url = "https://proptechos.com/api/json/" + type + sizeStr + extra
+        print("Fetching ", size, " of resource: ", type, " URL:", url)
+        devs = requests.get(url, headers = self.hdrs)
+        print(json.dumps(devs.json(), indent=4))
+        self.result = devs.json()
+        return devs.json()
 
-    def do_save(self, line):
-        'Save the last result as JSON. save <name>'
-        with open(line, 'w') as data_file:
-            json.dump(self.result, data_file, indent=4)
-        print("Save to: ", line)
 
-    def do_resolve_id(self, line):
-        self.do_fetch("actuator 10 deviceIds=" + line)
+    def resolve_id(self, id):
+        self.do_fetch("actuator", 10, "deviceIds=" + id)
         print(self.result)
 
-    def do_plot_tag(self, line):
-        self.do_fetch("sensor 10 littera=" + line)
-        id = self.result['content'][0]['id']
-        qKind = self.result['content'][0]['deviceQuantityKind']
+    def plot_tag(self, line):
+        json = self.fetch("sensor", 10, "littera=" + line)
+        id = json['content'][0]['id']
+        qKind = json['content'][0]['deviceQuantityKind']
         nowTime = datetime.datetime.strftime(datetime.datetime.now(), "%Y-%m-%dT%H:%MZ")
         oldTime = datetime.datetime.strftime(datetime.datetime.now() - datetime.timedelta(hours=12), "%Y-%m-%dT%H:%MZ")
         nowTime = urllib.parse.quote(nowTime)
         oldTime = urllib.parse.quote(oldTime)
-        self.do_fetch("sensor/" + id + "/observation 0 startTime=" + oldTime + "&endTime=" + nowTime)
-        data = self.result
+        data = self.fetch("sensor/" + id + "/observation", 0,"startTime=" + oldTime + "&endTime=" + nowTime)
         dates = list(map(lambda x: datetime.datetime.strptime(x['observationTime'], "%Y-%m-%dT%H:%M:%SZ"), data))
         y_values = list(map(lambda x: x['value'], data))
         x_values = dates
@@ -130,25 +101,3 @@ class ProptechCmd(cmd.Cmd):
         plt.xlabel("Time")
         plt.plot(x_values, y_values)
         plt.show()
-
-    def do_plot_device(self, line):
-        'plot device sensors last 12 hours'
-
-    def do_quit(self, line):
-        sys.exit()
-    #
-    # Device Id and keys file
-    #
-    def do_list_devices(self, line):
-        for dev in self.devices:
-            print(dev)
-
-    def do_load_devices(self, line):
-        with open(line, 'r') as data_file:
-            data = data_file.read()
-            self.devices = json.loads(data)
-
-if __name__ == '__main__':
-    cmd = ProptechCmd()
-    cmd.result = []
-    cmd.cmdloop()
