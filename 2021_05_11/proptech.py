@@ -73,7 +73,10 @@ class ProptechConnection:
             extra = '&' + extra
 
         url = "https://proptechos.com/api/json/" + resource_type + size_attr + extra
-        print("Fetching ", size, " of resource: ", resource_type, " URL:", url)
+        if size > 0:
+            print("Fetching up to", size, "items of resource type", resource_type, " URL:", url)
+        else:
+            print("Fetching all items of resource type", resource_type, " URL:", url)
         devs = requests.get(url, headers=self.headers)
         self.result = devs.json()
         return self.result
