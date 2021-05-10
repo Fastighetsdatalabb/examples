@@ -28,73 +28,80 @@
 #
 # ----------------------------------------------------------------------------
 #
-# Minimal Proptech OS test CLI for testing some basic fetching of ProptecOS
+# Minimal Proptech OS test CLI for testing some basic fetching of ProptechOS
 # data.
 # Author: Joakim Eriksson, RISE
 #
-import cmd, sys
-import requests, urllib.parse
-import json
 import datetime
-import matplotlib.pyplot as plt
+
 import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
+import requests
+import urllib.parse
+
 
 class ProptechConnection:
 
-    def __init__(self, cid, secret, owner = None):
+    headers = None
+    result = None
+
+    def __init__(self, cid, secret, owner=None):
         url = 'https://login.microsoftonline.com/d4218456-670f-42ad-9f6a-885ae15b6645/oauth2/v2.0/token'
 
-        mydata = {
-            'grant_type':'client_credentials',
+        my_data = {
+            'grant_type': 'client_credentials',
             'client_id': cid,
             'client_secret': secret,
-            'scope':'https://proptechos.com/api/.default'
+            'scope': 'https://proptechos.com/api/.default'
         }
 
-        response = requests.post(url, data = mydata)
+        response = requests.post(url, data=my_data)
         token = response.json()
-        self.hdrs = {'accept':'application/json', 'Authorization': 'Bearer ' + token['access_token']}
+        self.headers = {'accept': 'application/json', 'Authorization': 'Bearer ' + token['access_token']}
         if owner:
-            self.hdrs['X-Property-Owner'] = owner
-        print("Sending fetch requests with token: ", self.hdrs)
-    
-    def fetch(self, type, size = 10, extra = ''):
-        'Get the list of resource from Proptech OS. fetch <type-of-resource> [number]'
+            self.headers['X-Property-Owner'] = owner
+        print("Sending fetch requests with token:", self.headers)
+
+    def fetch(self, resource_type, size=10, extra=''):
+        """Get the list of resource from Proptech OS. fetch <type-of-resource> [number]"""
         # Get the resource list - first 50 devices
         if size > 0:
-            sizeStr = "?page=0&size=" + str(size)
+            size_attr = "?page=0&size=" + str(size)
         else:
-            sizeStr = "?page=0"
+            size_attr = "?page=0"
         if len(extra) > 0:
             extra = '&' + extra
 
-        url = "https://proptechos.com/api/json/" + type + sizeStr + extra
-        print("Fetching ", size, " of resource: ", type, " URL:", url)
-        devs = requests.get(url, headers = self.hdrs)
+        url = "https://proptechos.com/api/json/" + resource_type + size_attr + extra
+        print("Fetching ", size, " of resource: ", resource_type, " URL:", url)
+        devs = requests.get(url, headers=self.headers)
         self.result = devs.json()
-        return devs.json()
+        return self.result
 
-
-    def resolve_id(self, id):
-        self.do_fetch("actuator", 10, "deviceIds=" + id)
+    def resolve_id(self, device_id):
+        self.fetch("actuator", 10, "deviceIds=" + device_id)
         print(self.result)
 
     # fetch data from a sensor
-    def fetch_data(self, id, nowTime = None, oldTime = None, hours=12):
-        if not nowTime:
-            nowTime = datetime.datetime.strftime(datetime.datetime.now(), "%Y-%m-%dT%H:%MZ")
-        if not oldTime:
-            oldTime = datetime.datetime.strftime(datetime.datetime.now() - datetime.timedelta(hours=hours), "%Y-%m-%dT%H:%MZ")
-        nowTime = urllib.parse.quote(nowTime)
-        oldTime = urllib.parse.quote(oldTime)
-        data = self.fetch("sensor/" + id + "/observation", 0, "startTime=" + oldTime + "&endTime=" + nowTime)
+    def fetch_data(self, device_id, end_time=None, start_time=None, hours=12):
+        if not end_time:
+            end_time = datetime.datetime.strftime(datetime.datetime.now(), "%Y-%m-%dT%H:%MZ")
+        if not start_time:
+            start_time = datetime.datetime.strftime(datetime.datetime.now() - datetime.timedelta(hours=hours),
+                                                    "%Y-%m-%dT%H:%MZ")
+        end_time = urllib.parse.quote(end_time)
+        start_time = urllib.parse.quote(start_time)
+        data = self.fetch("sensor/" + device_id + "/observation", 0, "startTime=" + start_time + "&endTime=" + end_time)
         return data
 
     def plot_tag(self, line):
-        json = self.fetch("sensor", 10, "littera=" + line)
-        id = json['content'][0]['id']
-        qKind = json['content'][0]['deviceQuantityKind']
-        data = self.fetch_data(id)
+        json_data = self.fetch("sensor", 10, "littera=" + line)
+        device_id = json_data['content'][0]['id']
+        q_kind = json_data['content'][0]['deviceQuantityKind']
+        data = self.fetch_data(device_id)
+        self.plot_data('TAG: ' + line, q_kind, data)
+
+    def plot_data(self, title, q_kind, data):
         dates = list(map(lambda x: datetime.datetime.strptime(x['observationTime'], "%Y-%m-%dT%H:%M:%SZ"), data))
         y_values = list(map(lambda x: x['value'], data))
         x_values = dates
@@ -102,10 +109,10 @@ class ProptechConnection:
         fig.autofmt_xdate()
         formatter = mdates.DateFormatter("%Y-%m-%d %H:%M")
         ax.xaxis.set_major_formatter(formatter)
-        #locator = mdates.DayLocator()
-        #ax.xaxis.set_major_locator(locator)
-        plt.title("TAG: " + line)
-        plt.ylabel(qKind)
+        # locator = mdates.DayLocator()
+        # ax.xaxis.set_major_locator(locator)
+        plt.title(title)
+        plt.ylabel(q_kind)
         plt.xlabel("Time")
         plt.plot(x_values, y_values)
         plt.show()
