@@ -1,0 +1,6 @@
+# Ignore Python generated files
+__pycache__/
+*.pyc
+
+# Ignore notebook checkpoints
+.ipynb_checkpoints/
