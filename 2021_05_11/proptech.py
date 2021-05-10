@@ -28,8 +28,7 @@
 #
 # ----------------------------------------------------------------------------
 #
-# Minimal Proptech OS test CLI for testing some basic fetching of ProptechOS
-# data.
+# Minimal Proptech OS library for basic fetching of ProptechOS data.
 # Author: Joakim Eriksson, RISE
 #
 import datetime
@@ -46,6 +45,7 @@ class ProptechConnection:
     result = None
 
     def __init__(self, cid, secret, owner=None):
+        self.result = []
         url = 'https://login.microsoftonline.com/d4218456-670f-42ad-9f6a-885ae15b6645/oauth2/v2.0/token'
 
         my_data = {
@@ -79,11 +79,10 @@ class ProptechConnection:
         return self.result
 
     def resolve_id(self, device_id):
-        self.fetch("actuator", 10, "deviceIds=" + device_id)
-        print(self.result)
+        return self.fetch("actuator", 10, "deviceIds=" + device_id)
 
     # fetch data from a sensor
-    def fetch_data(self, device_id, end_time=None, start_time=None, hours=12):
+    def fetch_data(self, device_id, size=0, end_time=None, start_time=None, hours=12):
         if not end_time:
             end_time = datetime.datetime.strftime(datetime.datetime.now(), "%Y-%m-%dT%H:%MZ")
         if not start_time:
@@ -91,8 +90,8 @@ class ProptechConnection:
                                                     "%Y-%m-%dT%H:%MZ")
         end_time = urllib.parse.quote(end_time)
         start_time = urllib.parse.quote(start_time)
-        data = self.fetch("sensor/" + device_id + "/observation", 0, "startTime=" + start_time + "&endTime=" + end_time)
-        return data
+        return self.fetch("sensor/" + device_id + "/observation", size,
+                          "startTime=" + start_time + "&endTime=" + end_time)
 
     def plot_tag(self, line):
         json_data = self.fetch("sensor", 10, "littera=" + line)

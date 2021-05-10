@@ -28,7 +28,7 @@
 #
 # ----------------------------------------------------------------------------
 #
-# Minimal Proptech OS test CLI for testing some basic fetching of ProptecOS
+# Minimal Proptech OS test CLI for testing some basic fetching of ProptechOS
 # data.
 # Author: Joakim Eriksson, RISE
 #
@@ -38,9 +38,6 @@ import json
 import sys
 import urllib.parse
 
-import matplotlib.dates as mdates
-import matplotlib.pyplot as plt
-
 import proptech
 
 
@@ -48,8 +45,15 @@ class ProptechCmd(cmd.Cmd):
     intro = 'Welcome to the proptech cmd shell.   Type help or ? to list commands.\n'
     prompt = '>>'
     connection = None
-    devices = None
-    result = None
+    _devices = None
+
+    @property
+    def devices(self):
+        return self._devices if self._devices else []
+
+    @property
+    def result(self):
+        return self.connection.result if self.connection else []
 
     def do_connect(self, line):
         """Connect to Proptech OS: connect <client id> <secret>"""
@@ -65,17 +69,19 @@ class ProptechCmd(cmd.Cmd):
 
     def do_fetch(self, line):
         """Get the list of resource from Proptech OS. fetch <type-of-resource> [number]"""
+        if not self.connection:
+            print("Error - not connected.")
+            return
         # Get the resource list - first 50 devices
         args = line.split()
         if len(args) < 1:
             print("Error - you need to provide at least the resource type.")
             return
         resource_type = args[0]
-        size = 10
+        size = int(args[1]) if len(args) > 1 else 10
         extra = args[2] if len(args) > 2 else ''
         json_data = self.connection.fetch(resource_type, size, extra)
         print(json.dumps(json_data, indent=4))
-        self.result = json_data
 
     def do_eval(self, line):
         result = self.result
@@ -93,19 +99,27 @@ class ProptechCmd(cmd.Cmd):
         print("Save to: ", line)
 
     def do_resolve_id(self, line):
-        self.do_fetch("actuator 10 deviceIds=" + line)
-        print(self.result)
+        if not self.connection:
+            print("Error - not connected.")
+            return
+        result_data = self.connection.resolve_id(line)
+        print(result_data)
 
     def do_plot_tag(self, line):
-        self.do_fetch("sensor 10 littera=" + line)
-        device_id = self.result['content'][0]['id']
-        q_kind = self.result['content'][0]['deviceQuantityKind']
-        end_time = datetime.datetime.strftime(datetime.datetime.now(), "%Y-%m-%dT%H:%MZ")
-        start_time = datetime.datetime.strftime(datetime.datetime.now() - datetime.timedelta(hours=12), "%Y-%m-%dT%H:%MZ")
+        if not self.connection:
+            print("Error - not connected.")
+            return
+        extra = 'littera=' + line if line else ''
+        result_data = self.connection.fetch('sensor', size=10, extra=extra)
+        device_id = result_data['content'][0]['id']
+        q_kind = result_data['content'][0]['deviceQuantityKind']
+        end_time = datetime.datetime.strftime(datetime.datetime.now(), '%Y-%m-%dT%H:%MZ')
+        start_time = datetime.datetime.strftime(datetime.datetime.now() - datetime.timedelta(hours=12),
+                                                '%Y-%m-%dT%H:%MZ')
         end_time = urllib.parse.quote(end_time)
         start_time = urllib.parse.quote(start_time)
-        self.do_fetch("sensor/" + device_id + "/observation 0 startTime=" + start_time + "&endTime=" + end_time)
-        data = self.result
+        data = self.connection.fetch_data('sensor/' + device_id + '/observation', size=0,
+                                          end_time=end_time, start_time=start_time)
         self.connection.plot_data('TAG: ' + line, q_kind, data)
 
     def do_plot_device(self, line):
@@ -122,12 +136,17 @@ class ProptechCmd(cmd.Cmd):
             print(dev)
 
     def do_load_devices(self, line):
-        with open(line, 'r') as data_file:
-            data = data_file.read()
-            self.devices = json.loads(data)
+        if not line:
+            print("Error: please specify a file with device information.")
+            return
+        try:
+            with open(line, 'r') as data_file:
+                data = data_file.read()
+                self._devices = json.loads(data)
+        except FileNotFoundError:
+            print(f"Error: the file '{line}' does not exist.")
 
 
 if __name__ == '__main__':
     cmd = ProptechCmd()
-    cmd.result = []
     cmd.cmdloop()
