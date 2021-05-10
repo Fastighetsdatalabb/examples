@@ -1,0 +1,5 @@
+config = {
+  'appid' : '',
+  'secret' : '',
+  'owner' : ''
+}
