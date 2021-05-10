@@ -61,15 +61,16 @@ class ProptechConnection:
     def fetch(self, type, size = 10, extra = ''):
         'Get the list of resource from Proptech OS. fetch <type-of-resource> [number]'
         # Get the resource list - first 50 devices
-        sizeStr = "?page=0&size=" + str(size)
-
+        if size > 0:
+            sizeStr = "?page=0&size=" + str(size)
+        else:
+            sizeStr = "?page=0"
         if len(extra) > 0:
             extra = '&' + extra
 
         url = "https://proptechos.com/api/json/" + type + sizeStr + extra
         print("Fetching ", size, " of resource: ", type, " URL:", url)
         devs = requests.get(url, headers = self.hdrs)
-        print(json.dumps(devs.json(), indent=4))
         self.result = devs.json()
         return devs.json()
 
@@ -78,15 +79,22 @@ class ProptechConnection:
         self.do_fetch("actuator", 10, "deviceIds=" + id)
         print(self.result)
 
+    # fetch data from a sensor
+    def fetch_data(self, id, nowTime = None, oldTime = None, hours=12):
+        if not nowTime:
+            nowTime = datetime.datetime.strftime(datetime.datetime.now(), "%Y-%m-%dT%H:%MZ")
+        if not oldTime:
+            oldTime = datetime.datetime.strftime(datetime.datetime.now() - datetime.timedelta(hours=hours), "%Y-%m-%dT%H:%MZ")
+        nowTime = urllib.parse.quote(nowTime)
+        oldTime = urllib.parse.quote(oldTime)
+        data = self.fetch("sensor/" + id + "/observation", 0, "startTime=" + oldTime + "&endTime=" + nowTime)
+        return data
+
     def plot_tag(self, line):
         json = self.fetch("sensor", 10, "littera=" + line)
         id = json['content'][0]['id']
         qKind = json['content'][0]['deviceQuantityKind']
-        nowTime = datetime.datetime.strftime(datetime.datetime.now(), "%Y-%m-%dT%H:%MZ")
-        oldTime = datetime.datetime.strftime(datetime.datetime.now() - datetime.timedelta(hours=12), "%Y-%m-%dT%H:%MZ")
-        nowTime = urllib.parse.quote(nowTime)
-        oldTime = urllib.parse.quote(oldTime)
-        data = self.fetch("sensor/" + id + "/observation", 0,"startTime=" + oldTime + "&endTime=" + nowTime)
+        data = self.fetch_data(id)
         dates = list(map(lambda x: datetime.datetime.strptime(x['observationTime'], "%Y-%m-%dT%H:%M:%SZ"), data))
         y_values = list(map(lambda x: x['value'], data))
         x_values = dates
