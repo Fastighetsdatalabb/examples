@@ -31,12 +31,16 @@
 # Minimal Proptech OS library for basic fetching of ProptechOS data.
 # Author: Joakim Eriksson, RISE
 #
-import datetime
+import urllib.parse
+from datetime import datetime, timedelta
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import requests
-import urllib.parse
+
+
+def format_datetime(time):
+    return datetime.strftime(time, "%Y-%m-%dT%H:%MZ")
 
 
 class ProptechConnection:
@@ -87,10 +91,9 @@ class ProptechConnection:
     # fetch data from a sensor
     def fetch_data(self, device_id, size=0, end_time=None, start_time=None, hours=12):
         if not end_time:
-            end_time = datetime.datetime.strftime(datetime.datetime.now(), "%Y-%m-%dT%H:%MZ")
+            end_time = format_datetime(datetime.now())
         if not start_time:
-            start_time = datetime.datetime.strftime(datetime.datetime.now() - datetime.timedelta(hours=hours),
-                                                    "%Y-%m-%dT%H:%MZ")
+            start_time = format_datetime(datetime.now() - timedelta(hours=hours))
         end_time = urllib.parse.quote(end_time)
         start_time = urllib.parse.quote(start_time)
         return self.fetch("sensor/" + device_id + "/observation", size,
@@ -103,8 +106,8 @@ class ProptechConnection:
         data = self.fetch_data(device_id)
         self.plot_data('TAG: ' + line, q_kind, data)
 
-    def plot_data(self, title, q_kind, data):
-        dates = list(map(lambda x: datetime.datetime.strptime(x['observationTime'], "%Y-%m-%dT%H:%M:%SZ"), data))
+    def plot_data(self, title, y_label, data):
+        dates = list(map(lambda x: datetime.strptime(x['observationTime'], "%Y-%m-%dT%H:%M:%SZ"), data))
         y_values = list(map(lambda x: x['value'], data))
         x_values = dates
         fig, ax = plt.subplots()
@@ -114,7 +117,7 @@ class ProptechConnection:
         # locator = mdates.DayLocator()
         # ax.xaxis.set_major_locator(locator)
         plt.title(title)
-        plt.ylabel(q_kind)
+        plt.ylabel(y_label)
         plt.xlabel("Time")
         plt.plot(x_values, y_values)
         plt.show()

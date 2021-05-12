@@ -33,10 +33,10 @@
 # Author: Joakim Eriksson, RISE
 #
 import cmd
-import datetime
 import json
 import sys
 import urllib.parse
+from datetime import datetime, timedelta
 
 import proptech
 
@@ -113,9 +113,8 @@ class ProptechCmd(cmd.Cmd):
         result_data = self.connection.fetch('sensor', size=10, extra=extra)
         device_id = result_data['content'][0]['id']
         q_kind = result_data['content'][0]['deviceQuantityKind']
-        end_time = datetime.datetime.strftime(datetime.datetime.now(), '%Y-%m-%dT%H:%MZ')
-        start_time = datetime.datetime.strftime(datetime.datetime.now() - datetime.timedelta(hours=12),
-                                                '%Y-%m-%dT%H:%MZ')
+        end_time = proptech.format_datetime(datetime.now())
+        start_time = proptech.format_datetime(datetime.now() - timedelta(hours=12))
         end_time = urllib.parse.quote(end_time)
         start_time = urllib.parse.quote(start_time)
         data = self.connection.fetch_data('sensor/' + device_id + '/observation', size=0,
