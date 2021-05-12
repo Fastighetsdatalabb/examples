@@ -85,9 +85,6 @@ class ProptechConnection:
         self.result = devs.json()
         return self.result
 
-    def resolve_id(self, device_id):
-        return self.fetch("actuator", 10, "deviceIds=" + device_id)
-
     # fetch data from a sensor
     def fetch_data(self, device_id, size=0, end_time=None, start_time=None, hours=12):
         if not end_time:

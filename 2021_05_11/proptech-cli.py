@@ -98,13 +98,6 @@ class ProptechCmd(cmd.Cmd):
             json.dump(self.result, data_file, indent=4)
         print("Save to: ", line)
 
-    def do_resolve_id(self, line):
-        if not self.connection:
-            print("Error - not connected.")
-            return
-        result_data = self.connection.resolve_id(line)
-        print(result_data)
-
     def do_plot_tag(self, line):
         if not self.connection:
             print("Error - not connected.")
