@@ -66,9 +66,9 @@ class ProptechConnection:
             self.headers['X-Property-Owner'] = owner
         print("Sending fetch requests with token:", self.headers)
 
-    def fetch(self, resource_type, size=10, extra=''):
+    def fetch(self, resource_type, size=0, extra=''):
         """Get the list of resource from Proptech OS. fetch <type-of-resource> [number]"""
-        # Get the resource list - first 50 devices
+        # Get the resource list - first 50 (or size) devices
         if size > 0:
             size_attr = "?page=0&size=" + str(size)
         else:
@@ -80,7 +80,7 @@ class ProptechConnection:
         if size > 0:
             print("Fetching up to", size, "items of resource type", resource_type, " URL:", url)
         else:
-            print("Fetching all items of resource type", resource_type, " URL:", url)
+            print("Fetching items of resource type", resource_type, " URL:", url)
         devs = requests.get(url, headers=self.headers)
         self.result = devs.json()
         return self.result
@@ -96,12 +96,12 @@ class ProptechConnection:
         return self.fetch("sensor/" + device_id + "/observation", size,
                           "startTime=" + start_time + "&endTime=" + end_time)
 
-    def plot_tag(self, line):
-        json_data = self.fetch("sensor", 10, "littera=" + line)
+    def plot_tag(self, tag):
+        json_data = self.fetch('sensor', 1, 'littera=' + tag)
         device_id = json_data['content'][0]['id']
         q_kind = json_data['content'][0]['deviceQuantityKind']
         data = self.fetch_data(device_id)
-        self.plot_data('TAG: ' + line, q_kind, data)
+        self.plot_data('TAG: ' + tag, q_kind, data)
 
     def plot_data(self, title, y_label, data):
         dates = list(map(lambda x: datetime.strptime(x['observationTime'], "%Y-%m-%dT%H:%M:%SZ"), data))
