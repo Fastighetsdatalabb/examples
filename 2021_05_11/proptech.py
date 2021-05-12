@@ -96,11 +96,11 @@ class ProptechConnection:
         return self.fetch("sensor/" + device_id + "/observation", size,
                           "startTime=" + start_time + "&endTime=" + end_time)
 
-    def plot_tag(self, tag):
+    def plot_tag(self, tag, end_time=None, start_time=None, hours=12):
         json_data = self.fetch('sensor', 1, 'littera=' + tag)
         device_id = json_data['content'][0]['id']
         q_kind = json_data['content'][0]['deviceQuantityKind']
-        data = self.fetch_data(device_id)
+        data = self.fetch_data(device_id, end_time=end_time, start_time=start_time, hours=hours)
         self.plot_data('TAG: ' + tag, q_kind, data)
 
     def plot_data(self, title, y_label, data):
